@@ -9,7 +9,6 @@ BASE_MULTIPLIER = 1.25
 
 def create_field(mines):
     field = ["safe"] * 25
-
     mine_indexes = random.sample(range(25), mines)
 
     for i in mine_indexes:
@@ -67,8 +66,11 @@ def register_handlers(bot, get_user, save_data):
                 "Пример:\n/mine 100 3"
             )
 
-        bet = int(args[1])
-        mines = int(args[2])
+        try:
+            bet = int(args[1])
+            mines = int(args[2])
+        except:
+            return bot.reply_to(message, "Введите числа")
 
         if mines < 1 or mines > MINE_LIMIT:
             return bot.reply_to(message, "Максимум 10 мин")
@@ -100,62 +102,82 @@ def register_handlers(bot, get_user, save_data):
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith("mine_"))
     def mine_callbacks(call):
-        uid = str(call.from_user.id)
+        try:
+            uid = str(call.from_user.id)
+            data = call.data.split("|")
 
-        data = call.data.split("|")
+            if uid != data[1]:
+                return bot.answer_callback_query(
+                    call.id,
+                    "Это не твоя игра"
+                )
 
-        if uid != data[1]:
-            return bot.answer_callback_query(
-                call.id,
-                "Это не твоя игра"
-            )
+            game = games.get(uid)
 
-        game = games.get(uid)
+            if not game:
+                return bot.answer_callback_query(
+                    call.id,
+                    "Игра уже закончена"
+                )
 
-        if not game:
-            return
+            # Открытие клетки
+            if data[0] == "mine_open":
+                cell = int(data[2])
 
-        if data[0] == "mine_open":
-            cell = int(data[2])
+                if cell in game["opened"]:
+                    return bot.answer_callback_query(
+                        call.id,
+                        "Уже открыто"
+                    )
 
-            if cell in game["opened"]:
-                return
+                game["opened"].append(cell)
 
-            game["opened"].append(cell)
+                # Если мина
+                if game["field"][cell] == "mine":
+                    bot.edit_message_reply_markup(
+                        call.message.chat.id,
+                        call.message.message_id,
+                        reply_markup=build_board(uid)
+                    )
 
-            if game["field"][cell] == "mine":
+                    bot.answer_callback_query(
+                        call.id,
+                        "💣 Ты проиграл"
+                    )
+
+                    del games[uid]
+                    return
+
+                # Если безопасно
+                game["multiplier"] *= BASE_MULTIPLIER
+
+                bot.edit_message_reply_markup(
+                    call.message.chat.id,
+                    call.message.message_id,
+                    reply_markup=build_board(uid)
+                )
+
+                bot.answer_callback_query(
+                    call.id,
+                    f"⭐ x{round(game['multiplier'], 2)}"
+                )
+
+            # Забрать выигрыш
+            elif data[0] == "mine_cashout":
+                user = get_user(uid)
+
+                win = int(game["bet"] * game["multiplier"])
+                user["stars"] += win
+
+                save_data()
+
                 bot.edit_message_text(
-                    "💣 Ты проиграл",
+                    f"💰 Забрано {win} 🌠",
                     call.message.chat.id,
                     call.message.message_id
                 )
 
                 del games[uid]
-                return
 
-            game["multiplier"] *= BASE_MULTIPLIER
-
-            bot.edit_message_text(
-                f"⭐ Успешно\n"
-                f"💰 Ставка: {game['bet']} 🌠\n"
-                f"📈 x{round(game['multiplier'], 2)}",
-                call.message.chat.id,
-                call.message.message_id,
-                reply_markup=build_board(uid)
-            )
-
-        elif data[0] == "mine_cashout":
-            user = get_user(uid)
-
-            win = int(game["bet"] * game["multiplier"])
-            user["stars"] += win
-
-            save_data()
-
-            bot.edit_message_text(
-                f"💰 Забрано {win} 🌠",
-                call.message.chat.id,
-                call.message.message_id
-            )
-
-            del games[uid]
+        except Exception as e:
+            print("MINE ERROR:", e)
