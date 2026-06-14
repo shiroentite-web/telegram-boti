@@ -16,6 +16,11 @@ def create_field(mines):
 
     return field
 
+if data[0] == "mine_open":
+    bot.answer_callback_query(call.id)
+
+elif data[0] == "mine_cashout":
+    bot.answer_callback_query(call.id)
 
 def build_board(uid):
     game = games[uid]
@@ -100,8 +105,10 @@ def register_handlers(bot, get_user, save_data):
             reply_markup=build_board(uid)
         )
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("mine_"))
-    def mine_callbacks(call):
+    @bot.callback_query_handler(
+    func=lambda call: not call.data.startswith("mine_")
+    )
+    def cb(call):
         try:
             uid = str(call.from_user.id)
             data = call.data.split("|")
