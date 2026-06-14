@@ -1,7 +1,4 @@
-import telebot
-from mines import register_handlers
 import random
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 games = {}
 BASE_MULTIPLIER = 1.25
@@ -9,59 +6,45 @@ BASE_MULTIPLIER = 1.25
 
 def create_field(mines):
     field = ["safe"] * 25
-    for pos in random.sample(range(25), mines):
-        field[pos] = "mine"
+    for i in random.sample(range(25), mines):
+        field[i] = "mine"
     return field
 
 
-def build_board(uid):
+def show_field(uid):
     game = games[uid]
-    kb = InlineKeyboardMarkup(row_width=5)
+    text = ""
 
     for i in range(25):
         if i in game["opened"]:
             if game["field"][i] == "mine":
-                text = "💣"
+                text += "💣 "
             else:
-                text = "⭐"
+                text += "⭐ "
         else:
-            text = "⬛"
+            text += f"{i+1}️⃣ "
 
-        kb.insert(
-            InlineKeyboardButton(
-                text=text,
-                callback_data=f"mine:{uid}:{i}"
-            )
-        )
+        if (i + 1) % 5 == 0:
+            text += "\n"
 
-    kb.row(
-        InlineKeyboardButton(
-            "💰 Забрать",
-            callback_data=f"cash:{uid}"
-        )
-    )
-
-    return kb
+    return text
 
 
 def register_handlers(bot, get_user, save_data):
 
-    @bot.message_handler(commands=["mine"])
+    @bot.message_handler(commands=['mine'])
     def start_game(message):
         uid = str(message.from_user.id)
         args = message.text.split()
 
         if len(args) != 3:
-            return bot.reply_to(message, "Пример:\n/mine 100 3")
+            return bot.reply_to(message, "/mine 100 3")
 
-        try:
-            bet = int(args[1])
-            mines = int(args[2])
-        except:
-            return bot.reply_to(message, "Пиши числа")
+        bet = int(args[1])
+        mines = int(args[2])
 
         if mines < 1 or mines > 10:
-            return bot.reply_to(message, "Мин должно быть от 1 до 10")
+            return bot.reply_to(message, "Мин от 1 до 10")
 
         user = get_user(uid)
 
@@ -73,7 +56,6 @@ def register_handlers(bot, get_user, save_data):
 
         games[uid] = {
             "bet": bet,
-            "mines": mines,
             "field": create_field(mines),
             "opened": [],
             "multiplier": 1.0
@@ -84,68 +66,59 @@ def register_handlers(bot, get_user, save_data):
             f"🎮 Игра началась\n"
             f"💰 Ставка: {bet} 🌠\n"
             f"💣 Мин: {mines}\n"
-            f"📈 x1.00",
-            reply_markup=build_board(uid)
+            f"📈 x1.00\n\n"
+            f"{show_field(uid)}\n\n"
+            f"/open номер\n"
+            f"/take"
         )
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("mine:"))
-    def mine_click(call):
-        bot.answer_callback_query(call.id)
-
-        parts = call.data.split(":")
-        uid = parts[1]
-        cell = int(parts[2])
-
-        if str(call.from_user.id) != uid:
-            return bot.answer_callback_query(call.id, "Это не твоя игра")
+    @bot.message_handler(commands=['open'])
+    def open_cell(message):
+        uid = str(message.from_user.id)
 
         if uid not in games:
+            return bot.reply_to(message, "Нет активной игры")
+
+        args = message.text.split()
+
+        if len(args) != 2:
+            return bot.reply_to(message, "/open 7")
+
+        cell = int(args[1]) - 1
+
+        if cell < 0 or cell > 24:
             return
 
         game = games[uid]
 
         if cell in game["opened"]:
-            return
+            return bot.reply_to(message, "Уже открыта")
 
         game["opened"].append(cell)
 
         if game["field"][cell] == "mine":
-            for i in range(25):
-                if game["field"][i] == "mine":
-                    game["opened"].append(i)
-
-            bot.edit_message_text(
-                "💣 Ты проиграл",
-                call.message.chat.id,
-                call.message.message_id,
-                reply_markup=build_board(uid)
+            bot.send_message(
+                message.chat.id,
+                f"💣 Ты проиграл\n\n{show_field(uid)}"
             )
-
             del games[uid]
             return
 
         game["multiplier"] *= BASE_MULTIPLIER
 
-        bot.edit_message_text(
+        bot.send_message(
+            message.chat.id,
             f"⭐ Безопасно\n"
-            f"💰 Ставка: {game['bet']} 🌠\n"
-            f"📈 x{round(game['multiplier'], 2)}",
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=build_board(uid)
+            f"📈 x{round(game['multiplier'], 2)}\n\n"
+            f"{show_field(uid)}"
         )
 
-    @bot.callback_query_handler(func=lambda call: not call.data.startswith("mine:", "cash:"))
-    def cashout(call):
-        bot.answer_callback_query(call.id)
-
-        uid = call.data.split(":")[1]
-
-        if str(call.from_user.id) != uid:
-            return
+    @bot.message_handler(commands=['take'])
+    def cashout(message):
+        uid = str(message.from_user.id)
 
         if uid not in games:
-            return
+            return bot.reply_to(message, "Нет игры")
 
         game = games[uid]
         user = get_user(uid)
@@ -155,10 +128,34 @@ def register_handlers(bot, get_user, save_data):
 
         save_data()
 
-        bot.edit_message_text(
-            f"💰 Ты забрал {win} 🌠",
-            call.message.chat.id,
-            call.message.message_id
+        bot.send_message(
+            message.chat.id,
+            f"💰 Ты забрал {win} 🌠"
         )
 
         del games[uid]
+
+    @bot.message_handler(commands=['pay'])
+    def transfer(message):
+        args = message.text.split()
+
+        if len(args) != 3:
+            return bot.reply_to(message, "/pay id сумма")
+
+        sender = str(message.from_user.id)
+        target = str(args[1])
+        amount = int(args[2])
+
+        user = get_user(sender)
+
+        if user["stars"] < amount:
+            return bot.reply_to(message, "Недостаточно Stars")
+
+        target_user = get_user(target)
+
+        user["stars"] -= amount
+        target_user["stars"] += amount
+
+        save_data()
+
+        bot.reply_to(message, f"✅ Переведено {amount} 🌠")
