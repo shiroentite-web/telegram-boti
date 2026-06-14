@@ -1,3 +1,5 @@
+import telebot
+from mines import register_handlers
 import random
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
