@@ -61,6 +61,10 @@ def load_data():
             users = data.get("users", {})
 
 load_data()
+#игра
+@bot.callback_query_handler(
+    func=lambda call: not call.data.startswith(("mine:", "cash:"))
+)
 
 
 # ---------- USERS ----------
