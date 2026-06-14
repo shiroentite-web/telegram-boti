@@ -1,3 +1,4 @@
+from mines import register_handlers
 from flask import Flask
 import threading
 import telebot
@@ -369,7 +370,55 @@ def admin(message):
         "⚙️ Админ панель",
         reply_markup=kb
     )
+#миниигра
+@bot.message_handler(commands=['pay'])
+def transfer_stars(message):
+    try:
+        args = message.text.split()
 
+        if len(args) != 3:
+            return bot.reply_to(
+                message,
+                "Пример:\n/pay 123456789 100"
+            )
+
+        sender_id = str(message.from_user.id)
+        target_id = str(args[1])
+        amount = int(args[2])
+
+        if amount <= 0:
+            return bot.reply_to(message, "Сумма должна быть больше 0")
+
+        sender = get_user(sender_id)
+        target = get_user(target_id)
+
+        if sender["stars"] < amount:
+            return bot.reply_to(message, "Недостаточно Stars")
+
+        sender["stars"] -= amount
+        target["stars"] += amount
+
+        save_data()
+
+        bot.reply_to(
+            message,
+            f"✅ Переведено {amount} 🌠 пользователю {target_id}"
+        )
+
+        try:
+            bot.send_message(
+                int(target_id),
+                f"💸 Вам перевели {amount} 🌠"
+            )
+        except:
+            pass
+
+    except:
+        bot.reply_to(
+            message,
+            "Пример:\n/pay 123456789 100"
+        )
+#нужно
 @bot.message_handler(commands=['give'])
 def give_money(message):
     if message.from_user.id not in ADMINS:
@@ -387,7 +436,7 @@ def give_money(message):
 
     except:
         bot.reply_to(message, "Пример:\n/give 123456789 100")
-
+#нкжно
 @bot.message_handler(commands=['givestar'])
 def give_star(message):
     if message.from_user.id not in ADMINS:
@@ -408,6 +457,7 @@ def give_star(message):
 
 # ---------- AUTO RESTART ----------
 print("BOT STARTED")
+register_handlers(bot, get_user, save_data)
 
 threading.Thread(target=run_web).start()
 while True:
