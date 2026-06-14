@@ -93,8 +93,13 @@ def register_handlers(bot, get_user, save_data):
             reply_markup=build_board(uid)
         )
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("mine:"))
-    def open_cell(call):
+    @bot.callback_query_handler(
+    func=lambda call: not (
+        call.data.startswith("mine:")
+        or call.data.startswith("cash:")
+       )
+    )
+    def cb(call):
         bot.answer_callback_query(call.id)
 
         data = call.data.split(":")
