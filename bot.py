@@ -1,3 +1,5 @@
+from flask import Flask
+import threading
 import telebot
 import json
 import os
@@ -8,13 +10,18 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "8607595063:AAF8-b3jsc89T42VvLuMfQ34sPQJF0HjrDg"
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is alive"
+
+def run_web():
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
 ADMINS = [8042308513,6345235493,8701230812]
 
 DATA_FILE = "data.json"
-
-if os.path.exists(DATA_FILE):
-   os.remove(DATA_FILE)
 
 products = {
     "🇧🇩 Бангладеш": {"rub": 100, "stars": 100, "stock": 127, "desc": "+880"},
@@ -402,6 +409,7 @@ def give_star(message):
 # ---------- AUTO RESTART ----------
 print("BOT STARTED")
 
+threading.Thread(target=run_web).start()
 while True:
     try:
         bot.infinity_polling(timeout=30, long_polling_timeout=10)
