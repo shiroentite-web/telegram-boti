@@ -26,6 +26,12 @@ ADMINS = [8042308513,6345235493,8701230812]
 
 DATA_FILE = "data.json"
 
+orders = []
+order_id = 1
+users = {}
+
+load_data()
+
 products = {
     "🇧🇩 Бангладеш": {"rub": 100, "stars": 100, "stock": 127, "desc": "+880"},
     "🇨🇴 Колумбия": {"rub": 100, "stars": 100, "stock": 62, "desc": "+57"},
@@ -43,7 +49,7 @@ def save_data():
     data = {
         "orders": orders,
         "order_id": order_id,
-        "users": users,
+        "users": users
     }
 
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -51,21 +57,17 @@ def save_data():
 
 
 def load_data():
-    global orders, order_id, users, products
+    global orders, order_id, users
 
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
+    if not os.path.exists(DATA_FILE):
+        return
 
-            orders = data.get("orders", [])
-            order_id = data.get("order_id", 1)
-            users = data.get("users", {})
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
-load_data()
-#игра
-@bot.callback_query_handler(
-    func=lambda call: not call.data.startswith(("mine:", "cash:"))
-)
+    orders = data.get("orders", [])
+    order_id = data.get("order_id", 1)
+    users = data.get("users", {})
 
 
 # ---------- USERS ----------
