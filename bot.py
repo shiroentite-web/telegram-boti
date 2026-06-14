@@ -1,5 +1,9 @@
 from mines import register_handlers
+
 register_handlers(bot, get_user, save_data)
+
+bot.infinity_polling()
+
 from flask import Flask
 import threading
 import telebot
